@@ -97,22 +97,23 @@ rout(ufa, 			samara,			461).
 target(zhytomyr).
 
 move(A, B) :- rout(A,B,_);rout(B,A,_).
+movev(A, B, C) :- rout(A,B,C);rout(B,A,C).
 
-dfs_(From, To, _, [move(From, To)]) :-
+dfs_(From, To, _, [From, To]) :-
 	move(From, To),
-	write(From -> ""),
+	%write(From -> ""),
 	write(To).
-dfs_(From, To, VisitedNodes, [(From, X)|TailPath]) :-
+dfs_(From, To, VisitedNodes, [From|TailPath]) :-
 	write(From -> ""),
 	move(From, X),
 	not(member(X,VisitedNodes)),
 	dfs_(X, To, [From|VisitedNodes], TailPath).
 
-ddfs_(From, To, _, _, [move(From, To)]) :-
+ddfs_(From, To, _, _, [From, To]) :-
 	move(From, To),
 	write(From -> ""),
 	write(To).
-ddfs_(From, To, Counter, VisitedNodes, [(From, X)|TailPath]) :-
+ddfs_(From, To, Counter, VisitedNodes, [From|TailPath]) :-
 	write(From -> ""),
 	C1 is Counter - 1,
 	C1 > 1,
@@ -154,23 +155,32 @@ both_sides_([[A|Va]|OtherA], [[B|Vb]|OtherB], Path) :-
 	both_sides_(OtherA1, OtherB1, Path).
 consed(A, B, [B|A]).
 
-eager_(Targer,_,[Targer|Path]) :- target(Targer).
+eager_(Targer,_,[Targer|_]) :- target(Targer).
 eager_(CurNode,Vicited,[CurNode|Path]) :-
 	findall([X, C], (move(CurNode, C),distance(C, X),not(member(C, Vicited))), T), 	% X is for distance, C is for city
-	write(T),nl,
-	write(Vicited),nl,
 	list_min(T,[_,MinCity]),
-	write(MinCity),nl,
 	append(Vicited,[MinCity],NewOne),
-	write(NewOne),nl,nl,
 	eager_(MinCity,NewOne,Path).
 
-both_sides(Path) :- longStory,both_sides_([[spb]],[[zhytomyr]],Path),!.
-dfs(Path) :- longStory,dfs_(spb,zhytomyr,[],Path),!.
-ddfs(Path,Limit) :- longStory,ddfs_(spb,zhytomyr,Limit,[],Path),!.
-idfs(Path) :- longStory,idfs_(spb,zhytomyr,Path,0),!.
+astar_(Target,_,Path) :- target(Target),!,append(Path,[Target],Path1),write(Path1).
+astar_(CurNode,Vicited,Path) :-
+	findall([X,C],(move(CurNode, C),distance(C, Chokusetsu),movev(CurNode,C,Road),plus(Chokusetsu,Road,X),not(member([_,C], Vicited))), T),
+	list_min(T,[NearestX,NearestC]),!,
+	append(Path, [CurNode], Path1),
+	append(Vicited,[[NearestX,NearestC]],Vicited1),
+	write(Path1),write("->"),write(NearestC),nl,nl,
+	astar_(NearestC,Vicited1,Path1).
+astar_(_,Vicited,Path) :-
+	last_in_line(Path,NewC,NewPath),
+	astar_(NewC,Vicited,NewPath).
+
+both_sides(Path,Sum) :- longStory,both_sides_([[spb]],[[zhytomyr]],Path),path(Path,Sum),!.
+dfs(Path,Sum) :- longStory,dfs_(spb,zhytomyr,[],Path),path(Path,Sum),!.
+ddfs(Path,Limit,Sum) :- longStory,ddfs_(spb,zhytomyr,Limit,[],Path),path(Path,Sum),!.
+idfs(Path,Sum) :- longStory,idfs_(spb,zhytomyr,Path,0),path(Path,Sum),!.
 width(Path) :- longStory,width_(spb,[],[],Path),!.
-eager(Path) :- longStory,eager_(spb,[spb],Path),!.
+eager(Path,Sum) :- longStory,eager_(spb,[spb],Path),path(Path,Sum),!.
+astar :- astar_(spb,[[123,spb]],[]),!.
 
 longStory :- set_prolog_flag(answer_write_options,[max_depth(0)]).
 
@@ -179,3 +189,13 @@ list_min([[Numb,_],[Numb1,City1]|CitiesTail],Result) :-
 	Numb >= Numb1,!,list_min([[Numb1,City1]|CitiesTail],Result).
 list_min([[Numb,City],[Numb1,_]|CitiesTail],Result) :-
 	Numb < Numb1,list_min([[Numb,City]|CitiesTail],Result).
+
+path([_], 0).
+path([A,B|P], S) :-
+  movev(A, B, Sd),
+  path([B|P], S1),
+  plus(S1, Sd, S).
+
+last_in_line(List,Elem,NewList) :- last_(List,Elem,NewList),!.
+last_([E],E,_).
+last_([Fst|Tail],E,[Fst|TailDie]) :- last_(Tail,E,TailDie).
